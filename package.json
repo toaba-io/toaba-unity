@@ -1,0 +1,16 @@
+{
+  "name": "io.toaba.sdk",
+  "version": "0.1.0",
+  "displayName": "Toaba",
+  "description": "The Unity SDK for Toaba, the PaaS for live games: player accounts and content delivery.",
+  "unity": "6000.0",
+  "documentationUrl": "https://docs.toaba.io",
+  "changelogUrl": "https://github.com/toaba-io/toaba-unity/blob/main/CHANGELOG.md",
+  "licensesUrl": "https://github.com/toaba-io/toaba-unity/blob/main/LICENSE.md",
+  "license": "Apache-2.0",
+  "keywords": ["toaba", "backend", "authentication", "content delivery", "addressables"],
+  "author": {
+    "name": "Toaba",
+    "url": "https://toaba.io"
+  }
+}
