@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "io.toaba.sdk": "file:../..",
+    "com.unity.test-framework": "1.6.0"
+  },
+  "testables": ["io.toaba.sdk"]
+}

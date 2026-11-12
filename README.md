@@ -13,6 +13,18 @@ In Unity, open **Window → Package Manager**, select **+ → Install package fr
 https://github.com/toaba-io/toaba-unity.git
 ```
 
+## Development
+
+`TestProject~` is a small Unity project that loads the SDK from this folder. To run the tests
+without opening the Editor:
+
+```sh
+Unity -batchmode -nographics -projectPath TestProject~ -runTests -testPlatform EditMode \
+  -testResults TestProject~/Logs/results.xml -logFile -
+```
+
+Or open `TestProject~` in Unity and use **Window → General → Test Runner**.
+
 ## License
 
 Apache-2.0, see [LICENSE.md](LICENSE.md). The license covers this SDK only; it grants no right to

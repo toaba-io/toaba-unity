@@ -9,6 +9,10 @@
   "licensesUrl": "https://github.com/toaba-io/toaba-unity/blob/main/LICENSE.md",
   "license": "Apache-2.0",
   "keywords": ["toaba", "backend", "authentication", "content delivery", "addressables"],
+  "dependencies": {
+    "com.unity.modules.unitywebrequest": "1.0.0",
+    "com.unity.nuget.newtonsoft-json": "3.2.2"
+  },
   "author": {
     "name": "Toaba",
     "url": "https://toaba.io"
