@@ -39,6 +39,17 @@ namespace Toaba
         public static Awaitable SignInAnonymouslyAsync(CancellationToken cancellation = default) =>
             Service.SignInAnonymouslyAsync(cancellation);
 
+        /// <inheritdoc cref="PlayersService.PendingEmail"/>
+        public static EmailVerification PendingEmail => Service.PendingEmail;
+
+        /// <inheritdoc cref="PlayersService.SignInWithEmailAsync"/>
+        public static Awaitable<EmailVerification> SignInWithEmailAsync(string email, CancellationToken cancellation = default) =>
+            Service.SignInWithEmailAsync(email, cancellation);
+
+        /// <inheritdoc cref="PlayersService.AddEmailAsync"/>
+        public static Awaitable<EmailVerification> AddEmailAsync(string email, CancellationToken cancellation = default) =>
+            Service.AddEmailAsync(email, cancellation);
+
         /// <inheritdoc cref="PlayersService.GetAccessTokenAsync"/>
         public static Awaitable<string> GetAccessTokenAsync() => Service.GetAccessTokenAsync();
 

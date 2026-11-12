@@ -48,5 +48,21 @@ namespace Toaba
 
         public const string RateLimited = "rate_limited";
         public const string ValidationFailed = "validation_failed";
+
+        /// <summary>The email code is wrong, expired or used. The player can try again.</summary>
+        public const string InvalidCode = "invalid_code";
+
+        /// <summary>A code was sent recently. <see cref="ToabaException.RetryAfter"/> says when to resend.</summary>
+        public const string EmailCooldown = "email_cooldown";
+
+        /// <summary>The email belongs to another player. Toaba never merges players.</summary>
+        public const string EmailExists = "email_exists";
+
+        // Handled by the SDK itself.
+        internal const string InvalidAccessToken = "invalid_access_token";
+        internal const string SessionBusy = "session_busy";
+        internal const string InvalidRefreshToken = "invalid_refresh_token";
+        internal const string RefreshTokenReused = "refresh_token_reused";
+        internal const string SessionExpired = "session_expired";
     }
 }
