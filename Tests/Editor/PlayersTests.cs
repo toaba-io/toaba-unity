@@ -11,12 +11,12 @@ namespace Toaba.Tests
         TestServer server;
         MemoryStore store;
 
-        sealed class MemoryStore : ISessionStore
+        sealed class MemoryStore : ISecureStore
         {
-            public string Saved;
-            public string Load() => Saved;
-            public void Save(string session) => Saved = session;
-            public void Clear() => Saved = null;
+            readonly Dictionary<string, string> values = new Dictionary<string, string>();
+            public string Read(string key) => values.GetValueOrDefault(key);
+            public void Write(string key, string value) => values[key] = value;
+            public void Delete(string key) => values.Remove(key);
         }
 
         [SetUp]
@@ -31,8 +31,9 @@ namespace Toaba.Tests
 
         PlayersService Launch() => new ToabaClient("app_1", new ApiClient("pk_test", server.Url), store).Players;
 
-        static string SessionJson(string accessToken = "at_1", string refreshToken = "rt_1", int ttlSeconds = 3600) =>
-            $"{{\"data\":{{\"player_id\":\"pl_1\",\"access_token\":\"{accessToken}\"," +
+        static string SessionJson(
+            string playerId = "pl_1", string accessToken = "at_1", string refreshToken = "rt_1", int ttlSeconds = 3600) =>
+            $"{{\"data\":{{\"player_id\":\"{playerId}\",\"access_token\":\"{accessToken}\"," +
             $"\"refresh_token\":\"{refreshToken}\",\"access_token_ttl_seconds\":{ttlSeconds}}}}}";
 
         [Test]
@@ -64,10 +65,28 @@ namespace Toaba.Tests
         }
 
         [Test]
+        public async Task Each_profile_keeps_its_own_player()
+        {
+            server.Answer(201, SessionJson());
+            server.Answer(201, SessionJson(playerId: "pl_2"));
+            var players = Launch();
+            await players.SignInAnonymouslyAsync();
+
+            players.SwitchProfile("p2");
+            Assert.That(players.IsSignedIn, Is.False);
+            await players.SignInAnonymouslyAsync();
+            players.SwitchProfile("default");
+
+            Assert.That(players.PlayerId, Is.EqualTo("pl_1"));
+            players.SwitchProfile("p2");
+            Assert.That(players.PlayerId, Is.EqualTo("pl_2"));
+        }
+
+        [Test]
         public async Task An_expiring_token_is_refreshed_once_for_everyone_and_kept()
         {
             server.Answer(201, SessionJson(ttlSeconds: 60));
-            server.Answer(200, SessionJson("at_2", "rt_2"));
+            server.Answer(200, SessionJson(accessToken: "at_2", refreshToken: "rt_2"));
             var players = Launch();
             await players.SignInAnonymouslyAsync();
 

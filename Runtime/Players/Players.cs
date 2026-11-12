@@ -29,6 +29,12 @@ namespace Toaba
         /// <inheritdoc cref="PlayersService.PlayerId"/>
         public static string PlayerId => Service.PlayerId;
 
+        /// <inheritdoc cref="PlayersService.Profile"/>
+        public static string Profile => Service.Profile;
+
+        /// <inheritdoc cref="PlayersService.SwitchProfile"/>
+        public static void SwitchProfile(string profile) => Service.SwitchProfile(profile);
+
         /// <inheritdoc cref="PlayersService.SignInAnonymouslyAsync"/>
         public static Awaitable SignInAnonymouslyAsync(CancellationToken cancellation = default) =>
             Service.SignInAnonymouslyAsync(cancellation);
