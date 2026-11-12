@@ -8,9 +8,6 @@ namespace Toaba.Tests
 {
     public class PlayersTests
     {
-        const string SessionJson =
-            "{\"data\":{\"id\":\"se_1\",\"player_id\":\"pl_1\",\"access_token\":\"at_1\",\"refresh_token\":\"rt_1\",\"access_token_ttl_seconds\":3600}}";
-
         TestServer server;
         MemoryStore store;
 
@@ -34,10 +31,14 @@ namespace Toaba.Tests
 
         PlayersService Launch() => new ToabaClient("app_1", new ApiClient("pk_test", server.Url), store).Players;
 
+        static string SessionJson(string accessToken = "at_1", string refreshToken = "rt_1", int ttlSeconds = 3600) =>
+            $"{{\"data\":{{\"player_id\":\"pl_1\",\"access_token\":\"{accessToken}\"," +
+            $"\"refresh_token\":\"{refreshToken}\",\"access_token_ttl_seconds\":{ttlSeconds}}}}}";
+
         [Test]
         public async Task A_guest_stays_signed_in_across_launches()
         {
-            server.Answer(201, SessionJson);
+            server.Answer(201, SessionJson());
             var players = Launch();
             var signedIn = 0;
             players.SignedIn += () => signedIn++;
@@ -54,7 +55,7 @@ namespace Toaba.Tests
         [Test]
         public async Task Signing_in_again_while_signed_in_is_refused()
         {
-            server.Answer(201, SessionJson);
+            server.Answer(201, SessionJson());
             var players = Launch();
             await players.SignInAnonymouslyAsync();
 
@@ -63,9 +64,45 @@ namespace Toaba.Tests
         }
 
         [Test]
+        public async Task An_expiring_token_is_refreshed_once_for_everyone_and_kept()
+        {
+            server.Answer(201, SessionJson(ttlSeconds: 60));
+            server.Answer(200, SessionJson("at_2", "rt_2"));
+            var players = Launch();
+            await players.SignInAnonymouslyAsync();
+
+            var first = players.GetAccessTokenAsync();
+            var second = players.GetAccessTokenAsync();
+
+            Assert.That(await first, Is.EqualTo("at_2"));
+            Assert.That(await second, Is.EqualTo("at_2"));
+            Assert.That(server.Requests, Has.Count.EqualTo(2));
+            Assert.That(server.Requests[1].Body, Is.EqualTo("{\"refresh_token\":\"rt_1\"}"));
+            Assert.That(await Launch().GetAccessTokenAsync(), Is.EqualTo("at_2"));
+        }
+
+        [Test]
+        public async Task A_refused_refresh_ends_the_session()
+        {
+            server.Answer(201, SessionJson(ttlSeconds: 60));
+            server.Answer(401, "{\"error\":\"refresh_token_reused\"}");
+            var players = Launch();
+            var reasons = new List<SignOutReason>();
+            players.SignedOut += reasons.Add;
+            await players.SignInAnonymouslyAsync();
+
+            var error = await Expect.Throws<ToabaException>(async () => await players.GetAccessTokenAsync());
+
+            Assert.That(error.Code, Is.EqualTo("refresh_token_reused"));
+            Assert.That(players.IsSignedIn, Is.False);
+            Assert.That(reasons, Is.EqualTo(new[] { SignOutReason.SessionEnded }));
+            Assert.That(Launch().IsSignedIn, Is.False);
+        }
+
+        [Test]
         public async Task Signing_out_forgets_the_session_even_when_Toaba_refuses()
         {
-            server.Answer(201, SessionJson);
+            server.Answer(201, SessionJson());
             server.Answer(401, "{\"error\":\"invalid_access_token\"}");
             var players = Launch();
             var reasons = new List<SignOutReason>();

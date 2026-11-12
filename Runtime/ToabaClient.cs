@@ -16,17 +16,17 @@ namespace Toaba
 
         public PlayersService Players { get; }
 
-        internal ApiClient Api { get; }
-
         public ToabaClient(string appId, string publishableKey)
-            : this(Required(appId, nameof(appId)), new ApiClient(Required(publishableKey, nameof(publishableKey))), null)
+            : this(
+                Required(appId, nameof(appId)),
+                new ApiClient(Required(publishableKey, nameof(publishableKey)), headers: ClientContext.Headers()),
+                null)
         {
         }
 
         internal ToabaClient(string appId, ApiClient api, ISessionStore sessions)
         {
             AppId = appId;
-            Api = api;
             Players = new PlayersService(api, sessions ?? new FileSessionStore(appId));
         }
 

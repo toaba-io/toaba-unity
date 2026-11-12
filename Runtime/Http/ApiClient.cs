@@ -22,12 +22,19 @@ namespace Toaba.Http
         readonly string baseUrl;
         readonly string apiKey;
         readonly Func<TimeSpan, CancellationToken, Awaitable> wait;
+        readonly IReadOnlyDictionary<string, string> headers;
 
-        public ApiClient(string apiKey, string baseUrl = null, Func<TimeSpan, CancellationToken, Awaitable> wait = null)
+        /// <param name="headers">Sent with every request.</param>
+        public ApiClient(
+            string apiKey,
+            string baseUrl = null,
+            Func<TimeSpan, CancellationToken, Awaitable> wait = null,
+            IReadOnlyDictionary<string, string> headers = null)
         {
             this.apiKey = apiKey;
             this.baseUrl = (baseUrl ?? DefaultUrl()).TrimEnd('/');
             this.wait = wait ?? WaitRealtimeAsync;
+            this.headers = headers ?? new Dictionary<string, string>();
         }
 
         static string DefaultUrl()
@@ -80,12 +87,16 @@ namespace Toaba.Http
             CancellationToken cancellation = default) =>
             (await SendAsync(method, path, body, accessToken, cancellation)).Data<T>();
 
+        public Awaitable WaitAsync(TimeSpan duration, CancellationToken cancellation) => wait(duration, cancellation);
+
         // UnityWebRequest because HttpClient doesn't work on WebGL.
         UnityWebRequest Request(string method, string path, byte[] json, string accessToken)
         {
             var upload = json == null ? null : new UploadHandlerRaw(json);
             var web = new UnityWebRequest(baseUrl + path, method, new DownloadHandlerBuffer(), upload);
             web.timeout = TimeoutSeconds;
+            foreach (var header in headers)
+                web.SetRequestHeader(header.Key, header.Value);
             web.SetRequestHeader("apikey", apiKey);
             web.SetRequestHeader("Accept", "application/json");
             if (json != null)

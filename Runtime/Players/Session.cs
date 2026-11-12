@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Scripting;
 
@@ -15,6 +16,9 @@ namespace Toaba
 
         /// <summary>When the access token expires, in Unix seconds.</summary>
         public long ExpiresAt;
+
+        /// <summary>The refresh in flight from this session, shared by its callers. Not saved.</summary>
+        internal Task<Session> Refreshing;
     }
 
     internal interface ISessionStore

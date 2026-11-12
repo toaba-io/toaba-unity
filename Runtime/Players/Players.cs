@@ -33,6 +33,9 @@ namespace Toaba
         public static Awaitable SignInAnonymouslyAsync(CancellationToken cancellation = default) =>
             Service.SignInAnonymouslyAsync(cancellation);
 
+        /// <inheritdoc cref="PlayersService.GetAccessTokenAsync"/>
+        public static Awaitable<string> GetAccessTokenAsync() => Service.GetAccessTokenAsync();
+
         /// <inheritdoc cref="PlayersService.SignOutAsync"/>
         public static Awaitable SignOutAsync(CancellationToken cancellation = default) =>
             Service.SignOutAsync(cancellation);
