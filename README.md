@@ -13,6 +13,9 @@ In Unity, open **Window → Package Manager**, select **+ → Install package fr
 https://github.com/toaba-io/toaba-unity.git
 ```
 
+Then open **Edit → Project Settings → Toaba**, select **Set up Toaba**, and enter your app's ID
+and publishable key from the [dashboard](https://app.toaba.io).
+
 ## Development
 
 `TestProject~` is a small Unity project that loads the SDK from this folder. To run the tests
