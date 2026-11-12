@@ -19,12 +19,15 @@ namespace Toaba
         // targeting Windows still defines UNITY_STANDALONE_WIN.
         public static ISecureStore ForPlatform(string appId)
         {
-            var folder = Path.Combine(Application.persistentDataPath, "Toaba", appId);
 #if UNITY_EDITOR_WIN || (!UNITY_EDITOR && UNITY_STANDALONE_WIN)
-            return new DpapiStore(new FileStore(folder));
+            return new DpapiStore(new FileStore(Folder(appId)));
+#elif UNITY_EDITOR_OSX || (!UNITY_EDITOR && UNITY_STANDALONE_OSX)
+            return new KeychainStore($"io.toaba.{appId}");
 #else
-            return new FileStore(folder);
+            return new FileStore(Folder(appId));
 #endif
         }
+
+        static string Folder(string appId) => Path.Combine(Application.persistentDataPath, "Toaba", appId);
     }
 }
