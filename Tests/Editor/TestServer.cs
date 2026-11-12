@@ -46,7 +46,7 @@ namespace Toaba.Tests
             get
             {
                 lock (requests)
-                    return requests.ToArray();
+                    return requests.ToList();
             }
         }
 

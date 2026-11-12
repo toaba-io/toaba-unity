@@ -1,4 +1,3 @@
-using System.Text;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
@@ -15,8 +14,7 @@ namespace Toaba.Http
             DateParseHandling = DateParseHandling.None,
         };
 
-        public static byte[] Serialize(object value) =>
-            Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(value, Settings));
+        public static string Serialize(object value) => JsonConvert.SerializeObject(value, Settings);
 
         public static T Deserialize<T>(string json) => JsonConvert.DeserializeObject<T>(json ?? "", Settings);
 

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -46,7 +47,7 @@ namespace Toaba.Http
             string accessToken = null,
             CancellationToken cancellation = default)
         {
-            var json = body == null ? null : Json.Serialize(body);
+            var json = body == null ? null : Encoding.UTF8.GetBytes(Json.Serialize(body));
             for (var waits = 0; ; waits++)
             {
                 cancellation.ThrowIfCancellationRequested();

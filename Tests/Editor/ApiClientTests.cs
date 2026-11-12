@@ -63,7 +63,7 @@ namespace Toaba.Tests
                 "{\"error\":\"validation_failed\",\"message\":\"The request has invalid fields\",\"errors\":{\"email\":[\"is invalid\"]}}",
                 ("x-request-id", "req_1"));
 
-            var error = await Throws(() => api.SendAsync("POST", "/x", new { }));
+            var error = await Expect.Throws<ToabaException>(async () => await api.SendAsync("POST", "/x", new { }));
 
             Assert.That(error.Code, Is.EqualTo(ErrorCodes.ValidationFailed));
             Assert.That(error.Status, Is.EqualTo(422));
@@ -77,7 +77,7 @@ namespace Toaba.Tests
         {
             server.Answer(502, "<html>Bad Gateway</html>");
 
-            var error = await Throws(() => api.SendAsync("GET", "/x"));
+            var error = await Expect.Throws<ToabaException>(async () => await api.SendAsync("GET", "/x"));
 
             Assert.That(error.Code, Is.EqualTo(ErrorCodes.UnexpectedResponse));
             Assert.That(error.Status, Is.EqualTo(502));
@@ -89,7 +89,7 @@ namespace Toaba.Tests
             var url = server.Url;
             server.Dispose();
 
-            var error = await Throws(() => new ApiClient("pk_test", url).SendAsync("GET", "/x"));
+            var error = await Expect.Throws<ToabaException>(async () => await new ApiClient("pk_test", url).SendAsync("GET", "/x"));
 
             Assert.That(error.Code, Is.EqualTo(ErrorCodes.NetworkError));
             Assert.That(error.Status, Is.EqualTo(0));
@@ -112,25 +112,11 @@ namespace Toaba.Tests
         {
             server.Answer(429, "{\"error\":\"email_cooldown\"}", ("Retry-After", "60"));
 
-            var error = await Throws(() => api.SendAsync("POST", "/x", new { }));
+            var error = await Expect.Throws<ToabaException>(async () => await api.SendAsync("POST", "/x", new { }));
 
             Assert.That(error.Code, Is.EqualTo("email_cooldown"));
             Assert.That(error.RetryAfter, Is.EqualTo(TimeSpan.FromSeconds(60)));
             Assert.That(waits, Is.Empty);
-        }
-
-        static async Task<ToabaException> Throws<T>(Func<Awaitable<T>> call)
-        {
-            try
-            {
-                await call();
-            }
-            catch (ToabaException error)
-            {
-                return error;
-            }
-            Assert.Fail("Expected a ToabaException");
-            return null;
         }
     }
 }

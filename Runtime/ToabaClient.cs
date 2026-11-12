@@ -14,16 +14,20 @@ namespace Toaba
 
         public string AppId { get; }
 
+        public PlayersService Players { get; }
+
         internal ApiClient Api { get; }
 
         public ToabaClient(string appId, string publishableKey)
+            : this(Required(appId, nameof(appId)), new ApiClient(Required(publishableKey, nameof(publishableKey))), null)
         {
-            if (string.IsNullOrWhiteSpace(appId))
-                throw new ArgumentException("An app ID is required.", nameof(appId));
-            if (string.IsNullOrWhiteSpace(publishableKey))
-                throw new ArgumentException("A publishable key is required.", nameof(publishableKey));
-            AppId = appId.Trim();
-            Api = new ApiClient(publishableKey.Trim());
+        }
+
+        internal ToabaClient(string appId, ApiClient api, ISessionStore sessions)
+        {
+            AppId = appId;
+            Api = api;
+            Players = new PlayersService(api, sessions ?? new FileSessionStore(appId));
         }
 
         internal static ToabaClient Shared => shared ??= FromSettings();
@@ -36,6 +40,9 @@ namespace Toaba
                     "Toaba isn't set up: enter the app ID and publishable key in Project Settings → Toaba.");
             return new ToabaClient(settings.AppId, settings.PublishableKey);
         }
+
+        static string Required(string value, string name) =>
+            string.IsNullOrWhiteSpace(value) ? throw new ArgumentException($"{name} is required.", name) : value.Trim();
 
         // Statics survive entering Play Mode when domain reload is off.
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
