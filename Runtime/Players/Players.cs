@@ -53,8 +53,20 @@ namespace Toaba
         /// <inheritdoc cref="PlayersService.GetAccessTokenAsync"/>
         public static Awaitable<string> GetAccessTokenAsync() => Service.GetAccessTokenAsync();
 
+        /// <inheritdoc cref="PlayersService.GetPlayerAsync"/>
+        public static Awaitable<Player> GetPlayerAsync(CancellationToken cancellation = default) =>
+            Service.GetPlayerAsync(cancellation);
+
+        /// <inheritdoc cref="PlayersService.SetUsernameAsync"/>
+        public static Awaitable<Player> SetUsernameAsync(string username, CancellationToken cancellation = default) =>
+            Service.SetUsernameAsync(username, cancellation);
+
+        /// <inheritdoc cref="PlayersService.DeleteAccountAsync"/>
+        public static Awaitable DeleteAccountAsync(CancellationToken cancellation = default) =>
+            Service.DeleteAccountAsync(cancellation);
+
         /// <inheritdoc cref="PlayersService.SignOutAsync"/>
-        public static Awaitable SignOutAsync(CancellationToken cancellation = default) =>
-            Service.SignOutAsync(cancellation);
+        public static Awaitable SignOutAsync(SignOutScope scope = SignOutScope.ThisDevice, CancellationToken cancellation = default) =>
+            Service.SignOutAsync(scope, cancellation);
     }
 }

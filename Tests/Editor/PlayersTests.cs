@@ -30,6 +30,67 @@ namespace Toaba.Tests
 
         const string FlowJson = "{\"data\":{\"id\":\"fl_1\",\"expire_time\":\"2099-01-01T00:00:00Z\"}}";
 
+        const string PlayerJson =
+            "{\"data\":{\"id\":\"pl_1\",\"username\":null,\"email\":\"momo@example.com\",\"email_verified\":true," +
+            "\"anonymous\":false,\"create_time\":\"2026-11-12T08:30:49Z\"}}";
+
+        [Test]
+        public async Task A_username_can_be_set_and_cleared()
+        {
+            server.Answer(201, SessionJson());
+            server.Answer(200, PlayerJson.Replace("\"username\":null", "\"username\":\"moss\""));
+            server.Answer(200, PlayerJson);
+            var players = Launch();
+            await players.SignInAnonymouslyAsync();
+
+            var named = await players.SetUsernameAsync("moss");
+            var cleared = await players.SetUsernameAsync(null);
+
+            Assert.That(server.Requests[1].Body, Is.EqualTo("{\"username\":\"moss\"}"));
+            Assert.That(server.Requests[2].Body, Is.EqualTo("{\"username\":null}"));
+            Assert.That(named.Username, Is.EqualTo("moss"));
+            Assert.That(cleared.Username, Is.Null);
+            Assert.That(cleared.Email, Is.EqualTo("momo@example.com"));
+            Assert.That(cleared.EmailVerified, Is.True);
+            Assert.That(cleared.IsAnonymous, Is.False);
+            Assert.That(cleared.CreateTime, Is.EqualTo(new DateTimeOffset(2026, 11, 12, 8, 30, 49, TimeSpan.Zero)));
+        }
+
+        [Test]
+        public async Task Deleting_the_account_signs_the_player_out()
+        {
+            server.Answer(201, SessionJson());
+            server.Answer(204, "");
+            var players = Launch();
+            var reasons = new List<SignOutReason>();
+            players.SignedOut += reasons.Add;
+            await players.SignInAnonymouslyAsync();
+
+            await players.DeleteAccountAsync();
+
+            Assert.That(server.Requests[1].Method, Is.EqualTo("DELETE"));
+            Assert.That(server.Requests[1].Path, Is.EqualTo("/v1/auth/players/me"));
+            Assert.That(reasons, Is.EqualTo(new[] { SignOutReason.Requested }));
+        }
+
+        [Test]
+        public async Task Signing_out_other_devices_keeps_this_one_and_everywhere_ends_it()
+        {
+            server.Answer(201, SessionJson());
+            server.Answer(204, "");
+            server.Answer(204, "");
+            var players = Launch();
+            await players.SignInAnonymouslyAsync();
+
+            await players.SignOutAsync(SignOutScope.OtherDevices);
+            Assert.That(players.IsSignedIn, Is.True);
+            await players.SignOutAsync(SignOutScope.Everywhere);
+
+            Assert.That(server.Requests[1].Body, Is.EqualTo("{\"keep_current\":true}"));
+            Assert.That(server.Requests[2].Body, Is.EqualTo("{\"keep_current\":false}"));
+            Assert.That(players.IsSignedIn, Is.False);
+        }
+
         [Test]
         public async Task An_emailed_code_can_be_entered_after_a_restart_and_retried()
         {

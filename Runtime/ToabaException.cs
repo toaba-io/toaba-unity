@@ -58,6 +58,8 @@ namespace Toaba
         /// <summary>The email belongs to another player. Toaba never merges players.</summary>
         public const string EmailExists = "email_exists";
 
+        public const string UsernameTaken = "username_taken";
+
         // Handled by the SDK itself.
         internal const string InvalidAccessToken = "invalid_access_token";
         internal const string SessionBusy = "session_busy";

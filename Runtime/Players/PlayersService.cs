@@ -17,6 +17,13 @@ namespace Toaba
         SessionEnded,
     }
 
+    public enum SignOutScope
+    {
+        ThisDevice,
+        Everywhere,
+        OtherDevices,
+    }
+
     /// <summary>The player of one Toaba app. Most games use <see cref="Players"/>.</summary>
     public sealed class PlayersService
     {
@@ -111,11 +118,41 @@ namespace Toaba
         /// </summary>
         public async Awaitable<string> GetAccessTokenAsync() => (await FreshSessionAsync()).AccessToken;
 
-        /// <summary>Signs the player out on this device, even when Toaba can't be reached.</summary>
-        public async Awaitable SignOutAsync(CancellationToken cancellation = default)
+        public async Awaitable<Player> GetPlayerAsync(CancellationToken cancellation = default) =>
+            (await SendAuthorizedAsync("GET", "/v1/auth/players/me", null, cancellation)).Data<Player>();
+
+        /// <summary>
+        /// Sets the username shared by the player's apps, or clears it with null. A name in use
+        /// throws ToabaException with <see cref="ErrorCodes.UsernameTaken"/>.
+        /// </summary>
+        public async Awaitable<Player> SetUsernameAsync(string username, CancellationToken cancellation = default) =>
+            (await SendAuthorizedAsync(
+                "PATCH", "/v1/auth/players/me", new UsernameChange { Username = username }, cancellation)).Data<Player>();
+
+        /// <summary>Deletes the player's account in this app and signs them out.</summary>
+        public async Awaitable DeleteAccountAsync(CancellationToken cancellation = default)
+        {
+            await SendAuthorizedAsync("DELETE", "/v1/auth/players/me", null, cancellation);
+            End(SignOutReason.Requested);
+        }
+
+        /// <summary>
+        /// Signs the player out. On this device it always succeeds, even when Toaba can't be
+        /// reached. Everywhere and on other devices, it throws when Toaba can't be reached.
+        /// </summary>
+        public async Awaitable SignOutAsync(SignOutScope scope = SignOutScope.ThisDevice, CancellationToken cancellation = default)
         {
             if (session == null)
                 return;
+            if (scope != SignOutScope.ThisDevice)
+            {
+                await SendAuthorizedAsync(
+                    "POST", "/v1/auth/players/me/sessions/revoke",
+                    new { KeepCurrent = scope == SignOutScope.OtherDevices }, cancellation);
+                if (scope == SignOutScope.Everywhere)
+                    End(SignOutReason.Requested);
+                return;
+            }
             var accessToken = session.AccessToken;
             End(SignOutReason.Requested);
             try
