@@ -11,14 +11,6 @@ namespace Toaba.Tests
         TestServer server;
         MemoryStore store;
 
-        sealed class MemoryStore : ISecureStore
-        {
-            readonly Dictionary<string, string> values = new Dictionary<string, string>();
-            public string Read(string key) => values.GetValueOrDefault(key);
-            public void Write(string key, string value) => values[key] = value;
-            public void Delete(string key) => values.Remove(key);
-        }
-
         [SetUp]
         public void SetUp()
         {

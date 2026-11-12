@@ -15,7 +15,16 @@ namespace Toaba
 
     internal static class SecureStore
     {
-        public static ISecureStore ForPlatform(string appId) =>
-            new FileStore(Path.Combine(Application.persistentDataPath, "Toaba", appId));
+        // Chosen at compile time, checking the Editor before the build target: a Linux Editor
+        // targeting Windows still defines UNITY_STANDALONE_WIN.
+        public static ISecureStore ForPlatform(string appId)
+        {
+            var folder = Path.Combine(Application.persistentDataPath, "Toaba", appId);
+#if UNITY_EDITOR_WIN || (!UNITY_EDITOR && UNITY_STANDALONE_WIN)
+            return new DpapiStore(new FileStore(folder));
+#else
+            return new FileStore(folder);
+#endif
+        }
     }
 }
