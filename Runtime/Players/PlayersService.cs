@@ -54,7 +54,7 @@ namespace Toaba
         /// code screen again when it's set.
         /// </summary>
         public EmailVerification PendingEmail =>
-            pendingEmail != null && pendingEmail.ExpireTime > DateTimeOffset.UtcNow ? pendingEmail : null;
+            pendingEmail != null && !(pendingEmail.ExpireTime <= DateTimeOffset.UtcNow) ? pendingEmail : null;
 
         string PendingKey => Profile + ".email";
 
@@ -92,25 +92,41 @@ namespace Toaba
         /// Emails the player a code that signs them in, registering them if the address is new.
         /// To keep a guest's progress, use <see cref="AddEmailAsync"/> instead.
         /// </summary>
-        public async Awaitable<EmailVerification> SignInWithEmailAsync(string email, CancellationToken cancellation = default)
-        {
-            var response = await ExchangeAsync("/v1/auth/sessions", new { Email = email }, linking: false, cancellation);
-            return response.Status == 202 ? CodeSent(email, response, linking: false) : new EmailVerification(this, email, null);
-        }
+        public Awaitable<EmailVerification> SignInWithEmailAsync(string email, CancellationToken cancellation = default) =>
+            SignInAsync(email, new { Email = email }, cancellation);
+
+        /// <summary>
+        /// Signs in with an ID token from Google's or Apple's own SDK, and the raw value of the
+        /// <see cref="Toaba.Nonce"/> given to it. A code is needed only when the provider's email isn't verified.
+        /// To keep a guest's progress, use <see cref="LinkIdTokenAsync"/> instead.
+        /// </summary>
+        public Awaitable<EmailVerification> SignInWithIdTokenAsync(
+            string provider, string idToken, string nonce = null, CancellationToken cancellation = default) =>
+            SignInAsync(null, new { Provider = provider, IdToken = idToken, Nonce = nonce }, cancellation);
 
         /// <summary>
         /// Gives the signed-in guest an email address, emailing a code to confirm it. The player
         /// keeps their ID and progress.
         /// </summary>
-        public async Awaitable<EmailVerification> AddEmailAsync(string email, CancellationToken cancellation = default)
-        {
-            var response = await SendAuthorizedAsync(
-                "POST", "/v1/auth/players/me/identities", new { Provider = "email", Email = email }, cancellation);
-            if (response.Status == 202)
-                return CodeSent(email, response, linking: true);
-            Adopt(response.Data<Session>());
-            return new EmailVerification(this, email, null);
-        }
+        public Awaitable<EmailVerification> AddEmailAsync(string email, CancellationToken cancellation = default) =>
+            LinkAsync(email, new { Provider = Provider.Email, Email = email }, cancellation);
+
+        /// <summary>Adds a Google or Apple account to the signed-in player, who keeps their ID and progress.</summary>
+        public Awaitable<EmailVerification> LinkIdTokenAsync(
+            string provider, string idToken, string nonce = null, CancellationToken cancellation = default) =>
+            LinkAsync(null, new { Provider = provider, IdToken = idToken, Nonce = nonce }, cancellation);
+
+        /// <summary>The player's ways to sign in, oldest first.</summary>
+        public async Awaitable<Identity[]> GetIdentitiesAsync(CancellationToken cancellation = default) =>
+            (await SendAuthorizedAsync("GET", "/v1/auth/players/me/identities", null, cancellation)).Data<Identity[]>();
+
+        /// <summary>
+        /// Removes a way to sign in. The last one can't be removed: that throws ToabaException
+        /// with <see cref="ErrorCodes.LastIdentity"/>.
+        /// </summary>
+        public async Awaitable UnlinkAsync(Identity identity, CancellationToken cancellation = default) =>
+            await SendAuthorizedAsync(
+                "DELETE", $"/v1/auth/players/me/identities/{Uri.EscapeDataString(identity.Id)}", null, cancellation);
 
         /// <summary>
         /// The player's access token, for your own servers. It's refreshed first when it expires
@@ -203,9 +219,29 @@ namespace Toaba
             }
         }
 
-        EmailVerification CodeSent(string email, ApiResponse response, bool linking)
+        async Awaitable<EmailVerification> SignInAsync(string email, object body, CancellationToken cancellation)
         {
-            var flow = response.Data<PendingCode>();
+            var response = await ExchangeAsync("/v1/auth/sessions", body, linking: false, cancellation);
+            return Verification(email, CodeIn(response), linking: false);
+        }
+
+        // Adds a way to sign in: a 201 answer is the new session, a 202 a code to enter first.
+        async Awaitable<EmailVerification> LinkAsync(string email, object body, CancellationToken cancellation)
+        {
+            var response = await SendAuthorizedAsync("POST", "/v1/auth/players/me/identities", body, cancellation);
+            var flow = CodeIn(response);
+            if (flow == null)
+                Adopt(response.Data<Session>());
+            return Verification(email, flow, linking: true);
+        }
+
+        static PendingCode CodeIn(ApiResponse response) => response.Status == 202 ? response.Data<PendingCode>() : null;
+
+        // A flow means a code was emailed: keep it so the code screen survives a restart.
+        EmailVerification Verification(string email, PendingCode flow, bool linking)
+        {
+            if (flow == null)
+                return new EmailVerification(this, email, null);
             flow.Email = email;
             flow.Linking = linking;
             Save(PendingKey, flow);

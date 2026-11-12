@@ -60,6 +60,15 @@ namespace Toaba
 
         public const string UsernameTaken = "username_taken";
 
+        /// <summary>The Google or Apple account already belongs to another player.</summary>
+        public const string IdentityAlreadyExists = "identity_already_exists";
+
+        /// <summary>The player's only way to sign in can't be removed.</summary>
+        public const string LastIdentity = "last_identity";
+
+        /// <summary>The ID token was refused. Get a fresh one, with a new nonce, and try again.</summary>
+        public const string InvalidIdToken = "invalid_id_token";
+
         // Handled by the SDK itself.
         internal const string InvalidAccessToken = "invalid_access_token";
         internal const string SessionBusy = "session_busy";

@@ -14,13 +14,14 @@ namespace Toaba
         readonly PlayersService players;
         internal readonly PendingCode Pending;
 
+        /// <summary>Where the code went, or null when it went to a Google or Apple account's email.</summary>
         public string Email { get; }
 
-        /// <summary>False when the app doesn't confirm emails and the player is already done.</summary>
+        /// <summary>False when the player is already done, which is the usual case.</summary>
         public bool NeedsCode => Pending != null;
 
-        /// <summary>When the code stops working, if one is needed.</summary>
-        public DateTimeOffset ExpireTime => Pending?.ExpireTime ?? default;
+        /// <summary>When the code stops working, when known.</summary>
+        public DateTimeOffset? ExpireTime => Pending?.ExpireTime;
 
         internal EmailVerification(PlayersService players, string email, PendingCode pending)
         {
@@ -42,7 +43,7 @@ namespace Toaba
     internal sealed class PendingCode
     {
         public string Id;
-        public DateTimeOffset ExpireTime;
+        public DateTimeOffset? ExpireTime;
         public string Email;
 
         /// <summary>True when it adds the email to the signed-in player rather than signing in.</summary>

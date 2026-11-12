@@ -35,6 +35,63 @@ namespace Toaba.Tests
             "\"anonymous\":false,\"create_time\":\"2026-11-12T08:30:49Z\"}}";
 
         [Test]
+        public async Task An_ID_token_signs_in_with_the_raw_nonce()
+        {
+            server.Answer(201, SessionJson());
+            var players = Launch();
+            var nonce = Nonce.Create();
+
+            var result = await players.SignInWithIdTokenAsync(Provider.Apple, "id_apple", nonce.Raw);
+
+            Assert.That(result.NeedsCode, Is.False);
+            Assert.That(players.IsSignedIn, Is.True);
+            Assert.That(server.Requests[0].Body, Is.EqualTo(
+                $"{{\"provider\":\"apple\",\"id_token\":\"id_apple\",\"nonce\":\"{nonce.Raw}\"}}"));
+        }
+
+        [Test]
+        public void A_nonce_is_hashed_as_lowercase_SHA256_hex()
+        {
+            Assert.That(new Nonce("abc").Hashed,
+                Is.EqualTo("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"));
+        }
+
+        [Test]
+        public async Task Linking_an_ID_token_keeps_the_player()
+        {
+            server.Answer(201, SessionJson());
+            server.Answer(201, SessionJson(accessToken: "at_2", refreshToken: "rt_2"));
+            var players = Launch();
+            await players.SignInAnonymouslyAsync();
+
+            await players.LinkIdTokenAsync(Provider.Google, "id_google");
+
+            Assert.That(server.Requests[1].Path, Is.EqualTo("/v1/auth/players/me/identities"));
+            Assert.That(server.Requests[1].Body, Is.EqualTo("{\"provider\":\"google\",\"id_token\":\"id_google\"}"));
+            Assert.That(players.PlayerId, Is.EqualTo("pl_1"));
+        }
+
+        [Test]
+        public async Task Identities_can_be_listed_and_removed()
+        {
+            server.Answer(201, SessionJson());
+            server.Answer(200,
+                "{\"data\":[{\"id\":\"id_1\",\"provider\":\"email\",\"create_time\":\"2026-11-12T08:00:00Z\"}," +
+                "{\"id\":\"id_2\",\"provider\":\"google\",\"create_time\":\"2026-11-12T09:00:00Z\"}]}");
+            server.Answer(204, "");
+            var players = Launch();
+            await players.SignInAnonymouslyAsync();
+
+            var identities = await players.GetIdentitiesAsync();
+            await players.UnlinkAsync(identities[1]);
+
+            Assert.That(identities[0].Provider, Is.EqualTo("email"));
+            Assert.That(identities[1].Provider, Is.EqualTo(Provider.Google));
+            Assert.That(server.Requests[2].Method, Is.EqualTo("DELETE"));
+            Assert.That(server.Requests[2].Path, Is.EqualTo("/v1/auth/players/me/identities/id_2"));
+        }
+
+        [Test]
         public async Task A_username_can_be_set_and_cleared()
         {
             server.Answer(201, SessionJson());

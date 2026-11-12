@@ -50,6 +50,24 @@ namespace Toaba
         public static Awaitable<EmailVerification> AddEmailAsync(string email, CancellationToken cancellation = default) =>
             Service.AddEmailAsync(email, cancellation);
 
+        /// <inheritdoc cref="PlayersService.SignInWithIdTokenAsync"/>
+        public static Awaitable<EmailVerification> SignInWithIdTokenAsync(
+            string provider, string idToken, string nonce = null, CancellationToken cancellation = default) =>
+            Service.SignInWithIdTokenAsync(provider, idToken, nonce, cancellation);
+
+        /// <inheritdoc cref="PlayersService.LinkIdTokenAsync"/>
+        public static Awaitable<EmailVerification> LinkIdTokenAsync(
+            string provider, string idToken, string nonce = null, CancellationToken cancellation = default) =>
+            Service.LinkIdTokenAsync(provider, idToken, nonce, cancellation);
+
+        /// <inheritdoc cref="PlayersService.GetIdentitiesAsync"/>
+        public static Awaitable<Identity[]> GetIdentitiesAsync(CancellationToken cancellation = default) =>
+            Service.GetIdentitiesAsync(cancellation);
+
+        /// <inheritdoc cref="PlayersService.UnlinkAsync"/>
+        public static Awaitable UnlinkAsync(Identity identity, CancellationToken cancellation = default) =>
+            Service.UnlinkAsync(identity, cancellation);
+
         /// <inheritdoc cref="PlayersService.GetAccessTokenAsync"/>
         public static Awaitable<string> GetAccessTokenAsync() => Service.GetAccessTokenAsync();
 
