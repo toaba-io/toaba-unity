@@ -23,6 +23,8 @@ namespace Toaba
             return new DpapiStore(new FileStore(Folder(appId)));
 #elif UNITY_EDITOR_OSX || (!UNITY_EDITOR && UNITY_STANDALONE_OSX)
             return new KeychainStore($"io.toaba.{appId}");
+#elif !UNITY_EDITOR && UNITY_WEBGL
+            return new BrowserStore($"toaba.{appId}.");
 #else
             return new FileStore(Folder(appId));
 #endif
