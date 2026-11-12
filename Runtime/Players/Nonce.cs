@@ -1,6 +1,4 @@
 using System;
-using System.Security.Cryptography;
-using System.Text;
 
 namespace Toaba
 {
@@ -18,16 +16,9 @@ namespace Toaba
         internal Nonce(string raw)
         {
             Raw = raw;
-            using var sha256 = SHA256.Create();
-            Hashed = BitConverter.ToString(sha256.ComputeHash(Encoding.UTF8.GetBytes(raw))).Replace("-", "").ToLowerInvariant();
+            Hashed = BitConverter.ToString(Crypto.Sha256(raw)).Replace("-", "").ToLowerInvariant();
         }
 
-        public static Nonce Create()
-        {
-            var bytes = new byte[32];
-            using (var random = RandomNumberGenerator.Create())
-                random.GetBytes(bytes);
-            return new Nonce(Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_'));
-        }
+        public static Nonce Create() => new Nonce(Crypto.RandomUrlSafe());
     }
 }

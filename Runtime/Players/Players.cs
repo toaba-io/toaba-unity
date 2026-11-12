@@ -60,6 +60,14 @@ namespace Toaba
             string provider, string idToken, string nonce = null, CancellationToken cancellation = default) =>
             Service.LinkIdTokenAsync(provider, idToken, nonce, cancellation);
 
+        /// <inheritdoc cref="PlayersService.SignInWithBrowserAsync"/>
+        public static Awaitable<EmailVerification> SignInWithBrowserAsync(string provider, CancellationToken cancellation = default) =>
+            Service.SignInWithBrowserAsync(provider, cancellation);
+
+        /// <inheritdoc cref="PlayersService.LinkWithBrowserAsync"/>
+        public static Awaitable<EmailVerification> LinkWithBrowserAsync(string provider, CancellationToken cancellation = default) =>
+            Service.LinkWithBrowserAsync(provider, cancellation);
+
         /// <inheritdoc cref="PlayersService.GetIdentitiesAsync"/>
         public static Awaitable<Identity[]> GetIdentitiesAsync(CancellationToken cancellation = default) =>
             Service.GetIdentitiesAsync(cancellation);

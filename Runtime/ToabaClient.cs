@@ -24,10 +24,10 @@ namespace Toaba
         {
         }
 
-        internal ToabaClient(string appId, ApiClient api, ISecureStore store)
+        internal ToabaClient(string appId, ApiClient api, ISecureStore store, Action<string> openBrowser = null)
         {
             AppId = appId;
-            Players = new PlayersService(api, store ?? SecureStore.ForPlatform(appId));
+            Players = new PlayersService(api, store ?? SecureStore.ForPlatform(appId), openBrowser);
         }
 
         internal static ToabaClient Shared => shared ??= FromSettings();

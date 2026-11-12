@@ -1,5 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Net.Http;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using NUnit.Framework;
 using Toaba.Http;
@@ -10,18 +15,33 @@ namespace Toaba.Tests
     {
         TestServer server;
         MemoryStore store;
+        string opened;
+        string browserReturn;
 
         [SetUp]
         public void SetUp()
         {
             server = new TestServer();
             store = new MemoryStore();
+            opened = null;
+            browserReturn = "code=ac_1";
         }
 
         [TearDown]
         public void TearDown() => server.Dispose();
 
-        PlayersService Launch() => new ToabaClient("app_1", new ApiClient("pk_test", server.Url), store).Players;
+        PlayersService Launch() => new ToabaClient("app_1", new ApiClient("pk_test", server.Url), store, Browse).Players;
+
+        // Plays the browser: returns to the game's loopback address, named in the opened URL or, when
+        // linking, in the authorize request Toaba received.
+        void Browse(string url)
+        {
+            opened = url;
+            var redirect = ApiClient.ParseQuery(url)["redirect_to"]
+                           ?? ApiClient.ParseQuery(server.Requests.Last().Query)["redirect_to"];
+            var back = $"{redirect}?{browserReturn}";
+            Task.Run(() => new HttpClient().GetAsync(back));
+        }
 
         static string SessionJson(
             string playerId = "pl_1", string accessToken = "at_1", string refreshToken = "rt_1", int ttlSeconds = 3600) =>
@@ -89,6 +109,77 @@ namespace Toaba.Tests
             Assert.That(identities[1].Provider, Is.EqualTo(Provider.Google));
             Assert.That(server.Requests[2].Method, Is.EqualTo("DELETE"));
             Assert.That(server.Requests[2].Path, Is.EqualTo("/v1/auth/players/me/identities/id_2"));
+        }
+
+        [Test]
+        public async Task The_browser_signs_in_with_a_PKCE_code()
+        {
+            server.Answer(201, SessionJson());
+            var players = Launch();
+
+            var result = await players.SignInWithBrowserAsync(Provider.Google);
+
+            Assert.That(opened, Does.StartWith(server.Url + "/v1/auth/authorize?"));
+            var authorize = ApiClient.ParseQuery(opened);
+            Assert.That(authorize["provider"], Is.EqualTo("google"));
+            Assert.That(authorize["apikey"], Is.EqualTo("pk_test"));
+            Assert.That(authorize["redirect_to"], Does.Match(@"^http://127\.0\.0\.1:\d+/callback$"));
+            Assert.That(authorize["code_challenge_method"], Is.EqualTo("S256"));
+            var exchange = server.Requests[0];
+            Assert.That(exchange.Path, Is.EqualTo("/v1/auth/sessions"));
+            Assert.That(exchange.Body, Does.StartWith("{\"auth_code\":\"ac_1\",\"code_verifier\":\""));
+            var verifier = Regex.Match(exchange.Body, "\"code_verifier\":\"([^\"]+)\"").Groups[1].Value;
+            using var sha256 = SHA256.Create();
+            var challenge = Convert.ToBase64String(sha256.ComputeHash(Encoding.ASCII.GetBytes(verifier)))
+                .TrimEnd('=').Replace('+', '-').Replace('/', '_');
+            Assert.That(authorize["code_challenge"], Is.EqualTo(challenge));
+            Assert.That(result.NeedsCode, Is.False);
+            Assert.That(players.IsSignedIn, Is.True);
+        }
+
+        [Test]
+        public async Task An_unverified_provider_email_from_the_browser_waits_for_a_code()
+        {
+            browserReturn = "error=access_denied&error_code=email_confirmation_required&flow_id=fl_9";
+            var players = Launch();
+
+            var result = await players.SignInWithBrowserAsync(Provider.Apple);
+
+            Assert.That(result.NeedsCode, Is.True);
+            Assert.That(Launch().PendingEmail, Is.Not.Null);
+        }
+
+        [Test]
+        public async Task A_browser_error_becomes_a_ToabaException()
+        {
+            browserReturn = "error=access_denied&error_code=bad_oauth_state&error_description=OAuth+state+is+invalid";
+            var players = Launch();
+
+            var error = await Expect.Throws<ToabaException>(async () => await players.SignInWithBrowserAsync(Provider.Google));
+
+            Assert.That(error.Code, Is.EqualTo("bad_oauth_state"));
+            Assert.That(error.Message, Is.EqualTo("OAuth state is invalid"));
+        }
+
+        [Test]
+        public async Task Linking_in_the_browser_keeps_the_player()
+        {
+            server.Answer(201, SessionJson());
+            server.Answer(200, "{\"data\":{\"url\":\"https://accounts.example/o\"}}");
+            server.Answer(201, SessionJson(accessToken: "at_2", refreshToken: "rt_2"));
+            var players = Launch();
+            await players.SignInAnonymouslyAsync();
+
+            await players.LinkWithBrowserAsync(Provider.Apple);
+
+            Assert.That(opened, Is.EqualTo("https://accounts.example/o"));
+            var authorize = server.Requests[1];
+            Assert.That(authorize.Path, Is.EqualTo("/v1/auth/players/me/identities/authorize"));
+            Assert.That(authorize.Headers["Authorization"], Is.EqualTo("Bearer at_1"));
+            Assert.That(ApiClient.ParseQuery(authorize.Query)["skip_http_redirect"], Is.EqualTo("true"));
+            Assert.That(server.Requests[2].Body, Does.StartWith("{\"auth_code\":\"ac_1\""));
+            Assert.That(players.PlayerId, Is.EqualTo("pl_1"));
+            Assert.That(await players.GetAccessTokenAsync(), Is.EqualTo("at_2"));
         }
 
         [Test]

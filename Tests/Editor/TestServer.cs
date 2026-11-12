@@ -16,6 +16,7 @@ namespace Toaba.Tests
         {
             public string Method;
             public string Path;
+            public string Query;
             public Dictionary<string, string> Headers;
             public string Body;
         }
@@ -73,6 +74,7 @@ namespace Toaba.Tests
                         {
                             Method = request.HttpMethod,
                             Path = request.Url.AbsolutePath,
+                            Query = request.Url.Query,
                             Headers = request.Headers.AllKeys.ToDictionary(
                                 name => name, name => request.Headers[name], StringComparer.OrdinalIgnoreCase),
                             Body = reader.ReadToEnd(),

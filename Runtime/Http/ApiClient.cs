@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading;
+using System.Web;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
@@ -88,6 +90,20 @@ namespace Toaba.Http
             (await SendAsync(method, path, body, accessToken, cancellation)).Data<T>();
 
         public Awaitable WaitAsync(TimeSpan duration, CancellationToken cancellation) => wait(duration, cancellation);
+
+        // A page the browser opens can't send headers, so the key goes in the query.
+        public string BrowserUrl(string path, IEnumerable<(string Name, string Value)> query) =>
+            baseUrl + path + "?" + QueryString(new[] { ("apikey", apiKey) }.Concat(query));
+
+        public static string QueryString(IEnumerable<(string Name, string Value)> query) =>
+            string.Join("&", query.Select(pair => Uri.EscapeDataString(pair.Name) + "=" + Uri.EscapeDataString(pair.Value)));
+
+        /// <summary>The query parameters of a URL or request target; a missing one reads as null.</summary>
+        public static NameValueCollection ParseQuery(string url)
+        {
+            var start = url.IndexOf('?');
+            return HttpUtility.ParseQueryString(start < 0 ? "" : url.Substring(start + 1));
+        }
 
         // UnityWebRequest because HttpClient doesn't work on WebGL.
         UnityWebRequest Request(string method, string path, byte[] json, string accessToken)

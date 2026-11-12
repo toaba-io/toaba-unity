@@ -25,13 +25,14 @@ namespace Toaba
     }
 
     /// <summary>The player of one Toaba app. Most games use <see cref="Players"/>.</summary>
-    public sealed class PlayersService
+    public sealed partial class PlayersService
     {
         const int RefreshMarginSeconds = 300;
         static readonly Regex ProfileName = new Regex("^[a-z0-9_-]{1,30}$");
 
         readonly ApiClient api;
         readonly ISecureStore store;
+        readonly Action<string> openBrowser;
         Session session;
         EmailVerification pendingEmail;
         bool exchanging;
@@ -60,10 +61,11 @@ namespace Toaba
 
         static long Now => DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
-        internal PlayersService(ApiClient api, ISecureStore store)
+        internal PlayersService(ApiClient api, ISecureStore store, Action<string> openBrowser = null)
         {
             this.api = api;
             this.store = store;
+            this.openBrowser = openBrowser ?? Application.OpenURL;
             Restore();
         }
 
@@ -190,6 +192,13 @@ namespace Toaba
                 ForgetPending();
         }
 
+        void EnsureSignedOut()
+        {
+            if (session != null)
+                throw new InvalidOperationException(
+                    "A player is already signed in. Sign out first, or use a Link or Add method to keep a guest's progress.");
+        }
+
         // Trades a credential for tokens: a 201 answer is the session, a 202 a code to enter first.
         // Signing in needs no player and raises SignedIn; linking keeps the signed-in player.
         async Awaitable<ApiResponse> ExchangeAsync(string path, object body, bool linking, CancellationToken cancellation)
@@ -198,9 +207,8 @@ namespace Toaba
                 throw new InvalidOperationException("Wait for the sign-in to finish.");
             if (linking && session == null)
                 throw new InvalidOperationException("No player is signed in.");
-            if (!linking && session != null)
-                throw new InvalidOperationException(
-                    "A player is already signed in. Sign out first, or use AddEmailAsync to give a guest an email.");
+            if (!linking)
+                EnsureSignedOut();
             exchanging = true;
             try
             {

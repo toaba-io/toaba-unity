@@ -75,5 +75,6 @@ namespace Toaba
         internal const string InvalidRefreshToken = "invalid_refresh_token";
         internal const string RefreshTokenReused = "refresh_token_reused";
         internal const string SessionExpired = "session_expired";
+        internal const string EmailConfirmationRequired = "email_confirmation_required";
     }
 }
