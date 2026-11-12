@@ -27,6 +27,10 @@ The session is saved on the device and refreshed when needed. The
 [Unity guide](https://docs.toaba.io/docs/engines/unity) covers email codes, Google and Apple, and
 keeping a guest's progress.
 
+> [!WARNING]
+> A guest lives on one device, unused guests are deleted after 30 days, and anyone can create
+> guests. See [anonymous players](https://docs.toaba.io/docs/players/anonymous).
+
 ## Development
 
 `TestProject~` is a small Unity project that loads the SDK from this folder. To run the tests
