@@ -11,11 +11,14 @@ using Toaba.Http;
 
 namespace Toaba.Tests
 {
-    public class PlayersTests
+    // Also plays the browser: see Open.
+    public class PlayersTests : IBrowser
     {
         TestServer server;
         MemoryStore store;
+        string page;
         string opened;
+        string replaced;
         string browserReturn;
 
         [SetUp]
@@ -23,20 +26,31 @@ namespace Toaba.Tests
         {
             server = new TestServer();
             store = new MemoryStore();
-            opened = null;
+            page = opened = replaced = null;
             browserReturn = "code=ac_1";
         }
 
         [TearDown]
         public void TearDown() => server.Dispose();
 
-        PlayersService Launch() => new ToabaClient("app_1", new ApiClient("pk_test", server.Url), store, Browse).Players;
+        // page: the address of the WebGL page the game runs in.
+        PlayersService Launch(string page = null)
+        {
+            this.page = page;
+            return new ToabaClient("app_1", new ApiClient("pk_test", server.Url), store, this).Players;
+        }
 
-        // Plays the browser: returns to the game's loopback address, named in the opened URL or, when
+        string IBrowser.PageUrl => page;
+
+        void IBrowser.ReplacePageUrl(string url) => replaced = url;
+
+        // On desktop, returns to the game's loopback address, named in the opened URL or, when
         // linking, in the authorize request Toaba received.
-        void Browse(string url)
+        void IBrowser.Open(string url)
         {
             opened = url;
+            if (page != null)
+                return;
             var redirect = ApiClient.ParseQuery(url)["redirect_to"]
                            ?? ApiClient.ParseQuery(server.Requests.Last().Query)["redirect_to"];
             var back = $"{redirect}?{browserReturn}";
@@ -180,6 +194,50 @@ namespace Toaba.Tests
             Assert.That(server.Requests[2].Body, Does.StartWith("{\"auth_code\":\"ac_1\""));
             Assert.That(players.PlayerId, Is.EqualTo("pl_1"));
             Assert.That(await players.GetAccessTokenAsync(), Is.EqualTo("at_2"));
+        }
+
+        const string Page = "https://game.test/play?level=2";
+
+        [Test]
+        public async Task On_WebGL_the_page_finishes_the_sign_in_when_it_loads_again()
+        {
+            _ = Launch(Page).SignInWithBrowserAsync(Provider.Google);
+            var challenge = ApiClient.ParseQuery(opened)["code_challenge"];
+            Assert.That(ApiClient.ParseQuery(opened)["redirect_to"], Is.EqualTo(Page));
+
+            server.Answer(201, SessionJson());
+            var players = Launch(Page + "&code=ac_1");
+            await players.ReadyAsync();
+
+            Assert.That(players.IsSignedIn, Is.True);
+            Assert.That(replaced, Is.EqualTo(Page));
+            var verifier = Regex.Match(server.Requests[0].Body, "\"code_verifier\":\"([^\"]+)\"").Groups[1].Value;
+            Assert.That(Crypto.Base64Url(Crypto.Sha256(verifier)), Is.EqualTo(challenge));
+            Assert.That(store.Values.ContainsKey("browser.pkce"), Is.False);
+        }
+
+        [Test]
+        public async Task A_guest_sign_in_waits_for_the_page_to_finish_its_browser_sign_in()
+        {
+            _ = Launch(Page).SignInWithBrowserAsync(Provider.Google);
+            server.Answer(201, SessionJson());
+            var players = Launch(Page + "&code=ac_1");
+
+            await Expect.Throws<InvalidOperationException>(async () => await players.SignInAnonymouslyAsync());
+
+            Assert.That(players.IsSignedIn, Is.True);
+            Assert.That(server.Requests, Has.Count.EqualTo(1));
+        }
+
+        [Test]
+        public async Task A_failed_browser_sign_in_is_thrown_by_ReadyAsync()
+        {
+            _ = Launch(Page).SignInWithBrowserAsync(Provider.Google);
+            var players = Launch(Page + "&error=access_denied&error_code=bad_oauth_state&error_description=Expired");
+
+            var error = await Expect.Throws<ToabaException>(async () => await players.ReadyAsync());
+
+            Assert.That(error.Code, Is.EqualTo("bad_oauth_state"));
         }
 
         [Test]

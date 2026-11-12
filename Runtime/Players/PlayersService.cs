@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.ExceptionServices;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -32,7 +33,8 @@ namespace Toaba
 
         readonly ApiClient api;
         readonly ISecureStore store;
-        readonly Action<string> openBrowser;
+        readonly IBrowser browser;
+        readonly Task<Exception> ready;
         Session session;
         EmailVerification pendingEmail;
         bool exchanging;
@@ -61,17 +63,30 @@ namespace Toaba
 
         static long Now => DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
-        internal PlayersService(ApiClient api, ISecureStore store, Action<string> openBrowser = null)
+        internal PlayersService(ApiClient api, ISecureStore store, IBrowser browser = null)
         {
             this.api = api;
             this.store = store;
-            this.openBrowser = openBrowser ?? Application.OpenURL;
+            this.browser = browser ?? Browser.ForPlatform();
             Restore();
+            ready = StartUpAsync();
+        }
+
+        /// <summary>
+        /// On WebGL, finishes a browser sign-in the page returned from, throwing its failure. Await
+        /// it before reading <see cref="IsSignedIn"/> at startup.
+        /// </summary>
+        public async Awaitable ReadyAsync()
+        {
+            var failure = await ready;
+            if (failure != null)
+                ExceptionDispatchInfo.Capture(failure).Throw();
         }
 
         /// <summary>
         /// Switches to another saved player on this device, such as a second player for testing,
         /// and restores its session if it has one. The current player stays saved under its profile.
+        /// At startup, await <see cref="ReadyAsync"/> first.
         /// </summary>
         public void SwitchProfile(string profile)
         {
@@ -88,7 +103,7 @@ namespace Toaba
         /// signed in, because the guest's progress would be lost.
         /// </summary>
         public async Awaitable SignInAnonymouslyAsync(CancellationToken cancellation = default) =>
-            await ExchangeAsync("/v1/auth/sessions", new { Anonymous = true }, linking: false, cancellation);
+            await SignInAsync(null, new { Anonymous = true }, cancellation);
 
         /// <summary>
         /// Emails the player a code that signs them in, registering them if the address is new.
@@ -160,6 +175,7 @@ namespace Toaba
         /// </summary>
         public async Awaitable SignOutAsync(SignOutScope scope = SignOutScope.ThisDevice, CancellationToken cancellation = default)
         {
+            await ready;
             if (session == null)
                 return;
             if (scope != SignOutScope.ThisDevice)
@@ -186,6 +202,7 @@ namespace Toaba
         internal async Awaitable VerifyAsync(EmailVerification verification, string code, CancellationToken cancellation)
         {
             var flow = verification.Pending ?? throw new InvalidOperationException("No code is needed for this email.");
+            await ready;
             await ExchangeAsync(
                 $"/v1/auth/flows/{Uri.EscapeDataString(flow.Id)}/verify", new { Code = code }, flow.Linking, cancellation);
             if (pendingEmail == verification)
@@ -200,6 +217,7 @@ namespace Toaba
         }
 
         // Trades a credential for tokens: a 201 answer is the session, a 202 a code to enter first.
+        // Callers wait for start-up, which uses this to finish a browser sign-in.
         // Signing in needs no player and raises SignedIn; linking keeps the signed-in player.
         async Awaitable<ApiResponse> ExchangeAsync(string path, object body, bool linking, CancellationToken cancellation)
         {
@@ -229,6 +247,7 @@ namespace Toaba
 
         async Awaitable<EmailVerification> SignInAsync(string email, object body, CancellationToken cancellation)
         {
+            await ready;
             var response = await ExchangeAsync("/v1/auth/sessions", body, linking: false, cancellation);
             return Verification(email, CodeIn(response), linking: false);
         }
@@ -274,6 +293,7 @@ namespace Toaba
 
         async Awaitable<Session> FreshSessionAsync()
         {
+            await ready;
             var current = session ?? throw new InvalidOperationException("No player is signed in.");
             return current.ExpiresAt - Now > RefreshMarginSeconds ? current : await Refresh(current);
         }

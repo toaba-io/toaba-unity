@@ -23,6 +23,9 @@ namespace Toaba
             remove => Service.SignedOut -= value;
         }
 
+        /// <inheritdoc cref="PlayersService.ReadyAsync"/>
+        public static Awaitable ReadyAsync() => Service.ReadyAsync();
+
         /// <inheritdoc cref="PlayersService.IsSignedIn"/>
         public static bool IsSignedIn => Service.IsSignedIn;
 
