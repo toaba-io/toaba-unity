@@ -1,0 +1,24 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Create the release from the changelog
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="${TAG#v}"
+          test "$(jq -r .version package.json)" = "$version" || { echo "package.json isn't $version"; exit 1; }
+          awk -v heading="## $version" '$0 == heading { on = 1; next } /^## / { on = 0 } on' CHANGELOG.md > notes.md
+          test -s notes.md || { echo "CHANGELOG.md has no $version section"; exit 1; }
+          gh release create "$TAG" --title "$TAG" --notes-file notes.md
