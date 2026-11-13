@@ -12,22 +12,29 @@ namespace Toaba
     {
         static ToabaClient shared;
 
+        readonly ApiClient api;
+        StatusService status;
+
         public string AppId { get; }
 
         public PlayersService Players { get; }
 
+        /// <summary>Created on first use of it or <see cref="Clock"/>, which starts the first sync.</summary>
+        public StatusService Status => status ??= new StatusService(AppId, api);
+
+        public ClockService Clock => Status.Clock;
+
         public ToabaClient(string appId, string publishableKey)
-            : this(
-                Required(appId, nameof(appId)),
-                new ApiClient(Required(publishableKey, nameof(publishableKey)), headers: ClientContext.Headers()),
-                null)
+            : this(Required(appId, nameof(appId)), new ApiClient(Required(publishableKey, nameof(publishableKey))), null)
         {
         }
 
         internal ToabaClient(string appId, ApiClient api, ISecureStore store, IBrowser browser = null)
         {
             AppId = appId;
-            Players = new PlayersService(api, store ?? SecureStore.ForPlatform(appId), browser);
+            this.api = api;
+            Players = new PlayersService(
+                api.WithHeaders(ClientContext.Headers()), store ?? SecureStore.ForPlatform(appId), browser);
         }
 
         internal static ToabaClient Shared => shared ??= FromSettings();

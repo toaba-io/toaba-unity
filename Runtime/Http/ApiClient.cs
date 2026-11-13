@@ -24,20 +24,35 @@ namespace Toaba.Http
         readonly string baseUrl;
         readonly string apiKey;
         readonly Func<TimeSpan, CancellationToken, Awaitable> wait;
+        readonly Func<double> realtime;
         readonly IReadOnlyDictionary<string, string> headers;
 
-        /// <param name="headers">Sent with every request.</param>
+        /// <param name="realtime">Seconds on a clock that only moves forward.</param>
         public ApiClient(
             string apiKey,
             string baseUrl = null,
             Func<TimeSpan, CancellationToken, Awaitable> wait = null,
-            IReadOnlyDictionary<string, string> headers = null)
+            Func<double> realtime = null)
+            : this(apiKey, (baseUrl ?? DefaultUrl()).TrimEnd('/'), wait ?? WaitRealtimeAsync,
+                realtime ?? (() => Time.realtimeSinceStartupAsDouble), new Dictionary<string, string>())
+        {
+        }
+
+        ApiClient(
+            string apiKey,
+            string baseUrl,
+            Func<TimeSpan, CancellationToken, Awaitable> wait,
+            Func<double> realtime,
+            IReadOnlyDictionary<string, string> headers)
         {
             this.apiKey = apiKey;
-            this.baseUrl = (baseUrl ?? DefaultUrl()).TrimEnd('/');
-            this.wait = wait ?? WaitRealtimeAsync;
-            this.headers = headers ?? new Dictionary<string, string>();
+            this.baseUrl = baseUrl;
+            this.wait = wait;
+            this.realtime = realtime;
+            this.headers = headers;
         }
+
+        public double Realtime => realtime();
 
         static string DefaultUrl()
         {
@@ -48,6 +63,10 @@ namespace Toaba.Http
 #endif
             return ProductionUrl;
         }
+
+        /// <summary>A copy that sends <paramref name="headers"/> with every request.</summary>
+        public ApiClient WithHeaders(IReadOnlyDictionary<string, string> headers) =>
+            new ApiClient(apiKey, baseUrl, wait, realtime, headers);
 
         public async Awaitable<ApiResponse> SendAsync(
             string method,
@@ -61,6 +80,7 @@ namespace Toaba.Http
             {
                 cancellation.ThrowIfCancellationRequested();
                 using var web = Request(method, path, json, accessToken);
+                var sent = realtime();
                 using (cancellation.Register(web.Abort))
                     await web.SendWebRequest();
                 cancellation.ThrowIfCancellationRequested();
@@ -70,7 +90,7 @@ namespace Toaba.Http
                     throw new ToabaException(ErrorCodes.NetworkError, $"Couldn't reach Toaba: {web.error}");
                 var status = (int)web.responseCode;
                 if (status >= 200 && status < 300)
-                    return new ApiResponse(status, web.downloadHandler.text);
+                    return new ApiResponse(status, web.downloadHandler.text, sent, realtime());
 
                 var error = ReadError(web);
                 // A rate-limited request wasn't processed, so it's safe to send again.
@@ -167,10 +187,17 @@ namespace Toaba.Http
 
         public int Status { get; }
 
-        public ApiResponse(int status, string body)
+        /// <summary>When the answered attempt was sent and its answer arrived, in <see cref="ApiClient.Realtime"/> seconds.</summary>
+        public double Sent { get; }
+
+        public double Received { get; }
+
+        public ApiResponse(int status, string body, double sent, double received)
         {
             Status = status;
             this.body = body;
+            Sent = sent;
+            Received = received;
         }
 
         public T Data<T>()

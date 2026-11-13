@@ -235,7 +235,7 @@ namespace Toaba
                 {
                     Adopt(response.Data<Session>());
                     if (!linking)
-                        SignedIn?.Invoke();
+                        Events.Raise(SignedIn);
                 }
                 return response;
             }
@@ -347,7 +347,7 @@ namespace Toaba
             session = null;
             Forget(Profile);
             ForgetPending();
-            SignedOut?.Invoke(reason);
+            Events.Raise(SignedOut, reason);
         }
 
         void ForgetPending()
