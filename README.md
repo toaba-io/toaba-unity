@@ -1,7 +1,7 @@
 # Toaba for Unity
 
-The Unity SDK for [Toaba](https://toaba.io), the PaaS for live games, for Unity 6 and later. It
-signs players in today; content delivery comes next.
+The Unity SDK for [Toaba](https://toaba.io), the PaaS for live games. It requires Unity 6 or
+later. The SDK currently handles player sign-in; content delivery is planned.
 
 ## Install
 
@@ -23,13 +23,14 @@ if (!Toaba.Players.IsSignedIn)
 Debug.Log(Toaba.Players.PlayerId);
 ```
 
-The session is saved on the device and refreshed when needed. The
+The SDK saves the session on the device and refreshes it when needed. The
 [Unity guide](https://docs.toaba.io/docs/engines/unity) covers email codes, Google and Apple, and
 keeping a guest's progress.
 
 > [!WARNING]
-> A guest lives on one device, unused guests are deleted after 30 days, and anyone can create
-> guests. See [anonymous players](https://docs.toaba.io/docs/players/anonymous).
+> Guest accounts are stored on a single device and, by default, are deleted after 30 days of
+> inactivity. Anyone with your publishable key can create them. See
+> [anonymous players](https://docs.toaba.io/docs/players/anonymous).
 
 ## Development
 
