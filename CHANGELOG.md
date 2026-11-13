@@ -8,3 +8,5 @@
 - The session is restored at startup, refreshed before it expires, and saved per profile in the
   Windows DPAPI, the macOS Keychain, an owner-only file on Linux, or localStorage on WebGL.
 - Read and update the player, delete the account, and sign out on this device or everywhere.
+- Players requests describe the game: platform, OS, device, manufacturer, build, SDK version,
+  locale, and an install ID.
